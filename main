@@ -1,0 +1,544 @@
+//Bibliotecas necessárias para o funcionamento da tela 
+#include <LiquidCrystal.h> //Biblioteca para utilizar a tela LCD /
+#include <Keypad.h>
+
+//Definição das entradas que são usadas no arduíno para a tela LCD.
+LiquidCrystal lcd(A0, A1, A2, A3, A4, A5); 
+
+
+const byte numRows = 4;   //definição da quantidade de linhas do teclado.
+const byte numCols = 4;   //definição da quantidade de colunas do teclado.
+
+//definição das teclas que estão no teclado.
+char keymap[numRows][numCols] =
+{
+  {1, 2, 3, 'A'},
+  {4, 5, 6, 'B'},
+  {7, 8, 9, 'C'},
+  {'*', '0', '#', 'D'}
+};
+
+//definição das entradas do arduino que são utilizadas para as linhas.
+byte rowPins[numRows] = {7, 6, 5, 4};
+//definição das entradas do arduino que são utilizadas para as colunas.
+byte colPins[numCols] = {3, 2, 1, 0};
+
+//função para a leitura da tecla que foi pressionada no teclado
+Keypad myKeypad = Keypad(makeKeymap(keymap), rowPins, colPins, numRows, numCols);
+
+//variáveis para marcar a diferença de tempo de chegada e de saída para a ativação do alarme.
+unsigned long tempoSaida = 0;
+unsigned long tempoChegada=0;
+
+char keypressed; //variável para vericar qual tecla foi pressionada
+
+int ESTADO = 0; //variável para verificar em qual situação a função da leitura de senha se encontra.
+
+int soma = 0; //Variável para verificar quais janelas estão abertas.
+
+int verifica = 0; //Variável para ver em qual situação o sistema se encontra.
+
+char DIGITO1 = 0; //iniciando os digitos que serão alterados através do teclado. 
+char DIGITO2 = 0;
+char DIGITO3 = 0;
+char DIGITO4 = 0;
+char DIGITO5 = 0;
+char ERRADO = 0;
+
+int SENHA1 = 1; //1 2 3 4 é a definição da senha total
+int SENHA2 = 2; // para modificar a senha basta trocar esses digitos.
+int SENHA3 = 3; // não pode haver digito 0 por conta da função de leitura.
+int SENHA4 = 4;
+
+int sensorPorta = 11; //definição das portas de entrada no arduino 
+int sensorJanela1 = 12; // para os sensores de campo magnético
+int sensorJanela2 = 13;
+
+int ledVerde = 0;  //definição das portas para as luzes e buzzer 
+int ledAzul = 1;
+int ledVermelho = 2;
+int buzzer = 3;
+
+int resposta = 2; //resposta é uma variável que verifica se a senha foi inseridada corretamente
+                  //Como se fosse True e False, quando está em 2 ela é False e quando está 4
+       		      //ela é True.
+
+//Definição das portas do circuito integrado usado
+#define pinSH_CP 10   //Pino Clock 
+#define pinST_CP 9  //Pino Latch
+#define pinDS    8  //Pino Data
+#define qtdeCI   3
+
+
+void setup()
+{
+  
+  lcd.begin(16, 2); //iniciando todas as colunas e linhas do LCD
+  lcd.clear();
+  
+  pinMode(sensorPorta, INPUT_PULLUP); //definição das portas de entrada.
+  pinMode(sensorJanela1, INPUT_PULLUP);
+  pinMode(sensorJanela2, INPUT_PULLUP);
+  
+  pinMode(pinSH_CP, OUTPUT); //definição das portas de saídas.
+  pinMode(pinST_CP, OUTPUT);
+  pinMode(pinDS, OUTPUT);
+  
+}
+
+
+void leituraSenha(){ //função para a leitura de senha
+  
+  switch (ESTADO) //função para que verifica qual é o valor da variável ESTADO
+                  //e executa o comando refente ao número que ela está 
+  {
+    case 0:  //ESTADO INICIAL
+      lcd.print("CARREGANDO SIST.");
+      lcd.setCursor(1, 4);  //define em qual linha e coluna vai começar a ser escito
+      lcd.print("AGUARDE...");
+      delay (3000);
+      lcd.clear();
+      ESTADO = 1;               //repare que a variável ESTADO tem seu valor trocado para
+								//ir pra outras opções.
+      break;
+
+    case 1:
+      lcd.setCursor(0, 0);
+      lcd.print("DIGITE SUA SENHA");
+      keypressed = myKeypad.getKey();
+      if (keypressed) {
+        DIGITO1 = keypressed; //atribui ao DIGITO1 o valor digitado no teclado.
+        lcd.setCursor(0, 1);    //(0,1)- linha 1 coluna 0 .
+        lcd.print("*");          //adiciona esse símbulo na tela para esconde a senha.
+        if (DIGITO1 == SENHA1) { //avalia se o DIGITO1 é igual a senha 1
+          ESTADO = 2;
+        }
+        if (DIGITO1 != SENHA1) { //Se for difetente a função vai pra opção 7.
+          ESTADO = 7;
+          if (DIGITO1 == 'D') { //e se ele for "D" o ele vai pra opção 9 antes de ir pra 7.
+            ESTADO = 9;
+          }
+          if (DIGITO1 == 'C') { //mas se ele for "C" o sistema volta ao início da senha.
+            ESTADO = 1;
+            lcd.clear();        //essa função limpara o que está escrito na tela.
+          }
+        }
+
+      }
+      break;
+
+    case 2:
+      keypressed = myKeypad.getKey(); //não há a necessidade de avisar o arduino
+      if (keypressed) {              //em qual linha e coluna vai ser escrito o "*"
+        DIGITO2 = keypressed;        //pois ele vai partir da onde ja foi escrito algo.
+        lcd.print("*");              
+        if (DIGITO2 == SENHA2) {
+          ESTADO = 3;
+        }
+        if (DIGITO2 != SENHA2) {
+          ESTADO = 7;
+          if (DIGITO2 == 'D') {
+            ESTADO = 9;
+          }
+          if (DIGITO2 == 'C') {
+            ESTADO = 1;
+            lcd.clear();
+          }
+        }
+      }
+      break;
+
+    case 3:
+      keypressed = myKeypad.getKey();
+      if (keypressed) {
+        DIGITO3 = keypressed;
+        lcd.print("*");
+        if (DIGITO3 == SENHA3) {
+          ESTADO = 4;
+        }
+        if (DIGITO3 != SENHA3) {
+          ESTADO = 7;
+          if (DIGITO3 == 'D') {
+            ESTADO = 9;
+          }
+          if (DIGITO3 == 'C') {
+            ESTADO = 1;
+            lcd.clear();
+          }
+        }
+      }
+
+      break;
+
+    case 4:
+      keypressed = myKeypad.getKey();
+      if (keypressed) {
+        DIGITO4 = keypressed;
+        lcd.print("*");
+        if (DIGITO4 == SENHA4) {
+          ESTADO = 5;
+        }
+        if (DIGITO4 != SENHA4) {
+          ESTADO = 7;
+          if (DIGITO4 == 'D') {
+            ESTADO = 9;
+          }
+          if (DIGITO4 == 'C') {
+            ESTADO = 1;
+            lcd.clear();
+          }
+        }
+      }
+      break; 
+//as opções 1,2,3,4 são iguais em suas configurações.
+//Ele só vai chegar no case 5 se os digitos anteriosres forem iguais ao da senha
+//assim ele mostra que a senha está correta e atribui à variável ESTADO o valor 6
+//que irá aguardar o usuário digitar "C", quando a função for solicitada  
+    
+    case 5:
+      keypressed = myKeypad.getKey();
+      if (keypressed) {
+        DIGITO5 = keypressed;
+        if (DIGITO5 == 'D') {
+          ESTADO = 6;
+          lcd.clear();
+          lcd.setCursor(0, 0);
+          lcd.print("SENHA CORRETA");
+          lcd.setCursor(0, 1);
+          resposta = 4; //resposta 4 diz ao sistema que a resposta está correta.
+          delay(1000);
+//Caso o usuário não tecle na letra "D", o sistema confere se é a letra "C" para reiniciar
+//se não for letra "C" é atribuida à variável ESTADO o valor 7.          
+        }
+        if (DIGITO5 != 'D') {    
+          lcd.print("*");		 
+          ESTADO = 7;            
+          if (DIGITO5 == 'C') {
+            ESTADO = 1;
+            lcd.clear();
+          }
+        }
+        break;
+
+      case 6:
+       keypressed = myKeypad.getKey(); //fica no aguardo da tecla "C"
+        if (keypressed) {
+          ERRADO = keypressed;
+          if (ERRADO == 'C') {
+            ESTADO = 1;
+            lcd.clear();
+          }
+        }
+
+        break;
+//case 7 irá deixar o usuário continuar a escrever a senha, mesmo que ela já esteja errada
+//Se ele apertar "D" o sistema vai para a configuração 8.
+//Se ele apertar "c" retorna ao início.
+      case 7:
+        keypressed = myKeypad.getKey();
+        if (keypressed) {
+          ERRADO = keypressed;
+          if (ERRADO == 'D') {
+            ESTADO = 9;
+          }
+          if (ERRADO != 'D') {
+            lcd.print("*");
+            ESTADO = 8;
+            if (ERRADO == 'C') {
+              ESTADO = 1;
+              lcd.clear();
+            }
+          }
+        }
+        break;
+//Case 8 continua a função do Case 7 variando entre as duas configurações
+//até o usuário apertar "D" ou "C".
+      case 8:
+        keypressed = myKeypad.getKey();
+        if (keypressed) {
+          ERRADO = keypressed;
+          if (ERRADO == 'D') {
+            ESTADO = 9;
+          }
+          if (ERRADO != 'D') {
+            lcd.print("*");
+            ESTADO = 7;
+            if (ERRADO == 'C') {
+              ESTADO = 1;
+              lcd.clear();
+            }
+          }
+        }
+        break;
+//case 9 mostra ao usuário que a senha está errada e reinicia a leitura da senha.
+      case 9:
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("SENHA INCORRETA!");
+        lcd.setCursor(0, 1);
+        lcd.print("TENTE NOVAMENTE");
+        delay (2500);
+        ESTADO = 1;
+        lcd.clear();
+        break;
+      }
+  }
+}
+
+//Essa função serve para utilizar as saidas que estão no Circuito Integrado
+//com mais facilidade, basta chamar a função e digitar o valor, refente ao 
+//Circuito integrado e digital HIGH ou LOW.
+void CiWrite(byte pino, bool estado) {
+static byte ciBuffer[qtdeCI];
+
+bitWrite(ciBuffer[pino / 8], pino % 8, estado);
+
+digitalWrite(pinST_CP, LOW); //Inicia a Transmissão
+
+digitalWrite(pinDS, LOW);    //Apaga Tudo para Preparar Transmissão
+digitalWrite(pinSH_CP, LOW);
+
+for (int nC = qtdeCI-1; nC >= 0; nC--) {
+    for (int nB = 7; nB >= 0; nB--) {
+
+        digitalWrite(pinSH_CP, LOW);  //Baixa o Clock      
+        
+        digitalWrite(pinDS,  bitRead(ciBuffer[nC], nB) );     //Escreve o BIT
+        
+        digitalWrite(pinSH_CP, HIGH); //Eleva o Clock
+        digitalWrite(pinDS, LOW);     //Baixa o Data para Previnir Vazamento      
+    }  
+}
+
+digitalWrite(pinST_CP, HIGH);  //Finaliza a Transmissão
+
+}
+
+
+void loop(){
+// inicia o sistema pedindo a senha para continuar 
+  if(verifica == 0){
+    
+    CiWrite(ledVerde, HIGH);
+    leituraSenha();
+    
+    if(resposta == 4){ //se a senha estiver correta(resposta ==4)
+      verifica = 1;    //ele inicia a verificação dos sensores.
+      resposta = 2;
+      
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("  VERIFICANDO");
+      lcd.setCursor(0,1);
+      lcd.print("  SENSORES...");
+      
+      delay(2000);
+      
+      lcd.clear();
+    }
+    
+  }
+    
+    
+    while(verifica == 1){ //o sistema fica preso em um laço de verificação
+                          //esperando as janelas se fecharem. 
+      soma= 0;
+      
+      delay(500);
+      lcd.clear();
+      
+      
+      if(digitalRead(sensorJanela1) == HIGH){
+        soma = soma + sensorJanela1;
+      }
+      if(digitalRead(sensorJanela2) == HIGH){
+        soma = soma + sensorJanela2;
+      }
+      
+       
+      if(soma == 12){
+        lcd.setCursor(0,0);
+        lcd.print("JANELA 1 ABERTA");
+      }
+      
+      if(soma == 13){
+        lcd.setCursor(0,0);
+        lcd.print("JANELA 2 ABERTA");
+      }
+      
+      
+      if(soma == 25){
+        lcd.setCursor(0,0);
+        lcd.print("JANELA 1 ABERTA");
+        lcd.setCursor(0,1);
+        lcd.print("JANELA 2 ABERTA");
+      }
+      
+//as somas à cima são uma combinação de números para identificar 
+//quais janelas estão abertas.
+      if(soma ==0){     //Se a soma for 0 o sistema intende que
+        lcd.clear();    //nenhuma está aberta.
+        
+        delay(100);
+        
+       	lcd.setCursor(0,0);
+        lcd.print("  SENSORES OK");
+        
+        delay(2000);
+        
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("   3 MINUTOS");
+        lcd.setCursor(0,1);
+        lcd.print("  PARA INICIAR");
+        
+        tempoSaida = millis();//marca o tempo atual para fazer a variação depois.
+        
+        while(true){
+          
+          if((millis()- tempoSaida) > (100)){
+            verifica = 2;									//a variação(millis()- tempoSaida) que é o tempo 
+            break;                              //atual menos o tempo marcado em TempoSaida
+                                                //é o tempo de fechar a porta 
+          }
+//se o tempo não tiver acabado, mas o usuário decidir reiniciar o sistema, basta digitar a senha.
+          leituraSenha(); 
+          if(resposta == 4){
+        	verifica = 0;
+        	resposta = 2;
+        
+        	CiWrite(ledAzul, LOW);
+        
+        	lcd.clear();
+        	lcd.setCursor(0,0);
+        	lcd.print("SIS. REINICIADO");
+        	lcd.setCursor(0,1);
+        	lcd.print(" COM SUCESSO");
+        	delay(2000);
+        	lcd.clear();
+            ESTADO = 0;
+            break;
+        
+            }
+        }//fecha o laço while(true)     
+        
+    }//fecha o if(soma ==0)
+  }//fecha o lçao while(verifica==1)
+
+//após a verificação dos sensores o do tempo o sistema começa o monitoramento.    
+  if(verifica == 2){   
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print(" INICIANDO...");
+        
+    delay(2000);
+    
+    resposta = 2;
+    CiWrite(ledVerde, LOW); //desliga a luz verde e ascende a luz azul. 
+    CiWrite(ledAzul, HIGH);
+    
+    
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("SISTEMA EM");
+    lcd.setCursor(0,1);
+    lcd.print("MONITORAMENTO...");
+    
+    while(verifica == 2){
+     if(digitalRead(sensorPorta) == HIGH || digitalRead(sensorJanela1) == HIGH || digitalRead(sensorPorta) == HIGH){
+//Se houver comunicação com o sensor o sistema irá marcar o tempo atual para efetuat uma nova variação
+//para dar tempo do usuário digitar a senha.   
+      verifica = 3;
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("----SISTEMA----");
+      lcd.setCursor(0,1);
+      lcd.print("----VIOLADO----");
+       
+      tempoChegada = millis();
+       
+      break;}
+      leituraSenha();
+     if(resposta == 4){
+     verifica = 0;
+     resposta = 2;
+
+     CiWrite(ledAzul, LOW);  
+     CiWrite(ledVermelho, LOW);
+     CiWrite(buzzer, LOW);
+
+     lcd.clear();
+     lcd.setCursor(0,0);
+     lcd.print("SIS. REINICIADO");
+     lcd.setCursor(0,1);
+     lcd.print(" COM SUCESSO");
+     delay(2000);
+     lcd.clear();
+
+     ESTADO = 0;
+     
+     }  
+      
+    }
+  }
+  
+ if(verifica == 3){
+ //O sistema fica em laço que só é interompido se a variação de tempo (millis()- tempoChegada) for
+ // maior que o tempo definido ou se o usuário digitar a senha correta. 
+        while(true){
+          
+          if((millis()- tempoChegada) > (10000)){
+            verifica = 4;
+            break;
+          }
+          
+          leituraSenha();
+          if(resposta == 4){
+        	verifica = 0;
+        	resposta = 2;
+        
+        	CiWrite(ledAzul, LOW);
+        
+        	lcd.clear();
+        	lcd.setCursor(0,0);
+        	lcd.print("SIS. REINICIADO");
+        	lcd.setCursor(0,1);
+        	lcd.print(" COM SUCESSO");
+        	delay(2000);
+        	lcd.clear();
+        
+        	ESTADO = 0;
+            break;
+            }
+   		} 
+  }
+  
+//Em virifica 4 o sistema liga o led vermelho e o buzzer e
+//Aguarda a entrada de senha do usuário.
+  if(verifica == 4){
+    
+     CiWrite(ledVermelho, HIGH);
+     CiWrite(buzzer, HIGH);
+    
+     leituraSenha();
+     if(resposta == 4){
+     verifica = 0;
+     resposta = 2;
+
+     CiWrite(ledAzul, LOW);  
+     CiWrite(ledVermelho, LOW);
+     CiWrite(buzzer, LOW);
+
+     lcd.clear();
+     lcd.setCursor(0,0);
+     lcd.print("SIS. REINICIADO");
+     lcd.setCursor(0,1);
+     lcd.print(" COM SUCESSO");
+     delay(2000);
+     lcd.clear();
+
+     ESTADO = 0;
+     
+     }  
+   }
+} 
